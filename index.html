@@ -630,7 +630,7 @@ function renderChainTabs() {
     return `
       <button class="chain-tab" data-key="${key}" onclick="setActiveChain('${key}')">
         <span class="dot" style="background:${color}"></span>
-        ${chain.logo} ${chain.name}
+        ${chain.name}
       </button>
     `;
   }).join('');
