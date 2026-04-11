@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FoodMaxxing — Fast Food Inflation Tracker</title>
+  <meta name="description" content="Track how much fast food prices have actually risen since 2020. Real data, real charts, updated twice a week." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #1a1a1a;
+      --border: #222222;
+      --text: #f0ece4;
+      --muted: #666;
+      --accent: #ff4d1c;
+      --accent2: #ffb547;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+
+```
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── HEADER ── */
+header {
+  position: relative;
+  z-index: 10;
+  padding: 2rem 2rem 0;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #0f0f0f 0%, var(--bg) 100%);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.logo-block h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.logo-block p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 0.4rem;
+  font-weight: 500;
+}
+
+.header-meta {
+  text-align: right;
+}
+
+.last-updated {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: var(--green);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.7rem;
+  border-radius: 2rem;
+  margin-top: 0.5rem;
+}
+
+.live-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── MAIN ── */
+main {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* ── STAT CARDS ── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  transition: background 0.2s;
+}
+
+.stat-card:hover { background: var(--surface2); }
+
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+
+.stat-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.stat-value.up { color: var(--red); }
+.stat-value.neutral { color: var(--accent2); }
+
+.stat-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── CHAIN TABS ── */
+.chain-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.chain-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.chain-tab:hover {
+  border-color: #444;
+  color: var(--text);
+}
+
+.chain-tab.active {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: #444;
+}
+
+.chain-tab .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── CHART AREA ── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+@media (max-width: 900px) {
+  .chart-grid { grid-template-columns: 1fr; }
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.chart-card-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 280px;
+}
+
+/* ── CHAIN CARDS GRID ── */
+.chains-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.chain-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.chain-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--chain-color, var(--accent));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.chain-card:hover {
+  border-color: #333;
+  transform: translateY(-2px);
+}
+
+.chain-card:hover::before { opacity: 1; }
+
+.chain-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.chain-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.chain-emoji { font-size: 1.4rem; }
+
+.chain-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.chain-increase {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--red);
+  letter-spacing: 0.02em;
+}
+
+.item-list { list-style: none; }
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.item-row:last-child { border-bottom: none; }
+
+.item-name { color: var(--muted); }
+
+.item-prices {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+}
+
+.item-old { color: var(--muted); text-decoration: line-through; }
+.item-new { color: var(--text); font-weight: 500; }
+.item-pct {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.mini-chart-wrap {
+  height: 50px;
+  margin-top: 0.75rem;
+}
+
+/* ── INFLATION INDEX ── */
+.index-bar-list { list-style: none; }
+
+.index-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.index-bar-item:last-child { border-bottom: none; }
+
+.index-chain-name {
+  width: 110px;
+  flex-shrink: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.index-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.index-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.index-pct {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--red);
+  width: 45px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  position: relative;
+  z-index: 1;
+}
+
+footer a { color: var(--accent); text-decoration: none; }
+
+/* ── ANIMATIONS ── */
+.fade-in {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: fadeIn 0.5s forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in:nth-child(1) { animation-delay: 0.05s; }
+.fade-in:nth-child(2) { animation-delay: 0.1s; }
+.fade-in:nth-child(3) { animation-delay: 0.15s; }
+.fade-in:nth-child(4) { animation-delay: 0.2s; }
+.fade-in:nth-child(5) { animation-delay: 0.25s; }
+```
+
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-block">
+      <h1>FoodMaxxing</h1>
+      <p>Fast Food Inflation Tracker — 2020 to Today</p>
+    </div>
+    <div class="header-meta">
+      <div class="last-updated" id="lastUpdated">Loading...</div>
+      <div class="live-badge">Updated Twice Weekly</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- STAT STRIP -->
+
+  <div class="stats-strip" id="statsStrip"></div>
+
+  <!-- OVERVIEW CHART -->
+
+  <div class="section-title">Price History</div>
+
+  <div class="chain-tabs" id="chainTabs"></div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-title">Item Price History (2020–Present)</div>
+      <div class="chart-wrap">
+        <canvas id="historyChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Inflation Index — All Chains</div>
+      <ul class="index-bar-list" id="indexBarList"></ul>
+    </div>
+  </div>
+
+  <!-- CHAINS GRID -->
+
+  <div class="section-title">All Chains</div>
+  <div class="chains-grid" id="chainsGrid"></div>
+
+</main>
+
+<footer>
+  <p>FoodMaxxing tracks menu prices across major US chains twice weekly. Data sourced from public menus &amp; price aggregators.<br/>
+  Not affiliated with any restaurant chain. For informational purposes only. &copy; 2026 <a href="#">foodmaxxing.github.io</a></p>
+</footer>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+
+let DATA = null;
+let historyChart = null;
+let activeChain = null;
+let miniCharts = {};
+
+async function loadData() {
+  try {
+    const res = await fetch('./data/prices.json');
+    DATA = await res.json();
+  } catch(e) {
+    // Fallback for local dev
+    console.warn('Could not fetch data, using inline fallback');
+  }
+  init();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+
+function getFirstPrice(items) {
+  const first = Object.values(items)[0];
+  return first[0].price;
+}
+
+function getLatestPrice(items) {
+  const first = Object.values(items)[0];
+  return first[first.length - 1].price;
+}
+
+function getPctIncrease(items) {
+  const entries = Object.values(items)[0];
+  const old = entries[0].price;
+  const now = entries[entries.length - 1].price;
+  return (((now - old) / old) * 100).toFixed(1);
+}
+
+function getAvgPctIncrease(chainItems) {
+  const pcts = Object.values(chainItems).map(entries => {
+    const old = entries[0].price;
+    const now = entries[entries.length - 1].price;
+    return ((now - old) / old) * 100;
+  });
+  return (pcts.reduce((a,b)=>a+b,0) / pcts.length).toFixed(1);
+}
+
+function formatPrice(p) {
+  return '$' + p.toFixed(2);
+}
+
+const CHART_COLORS = [
+  '#ff4d1c','#ffb547','#22c55e','#3b82f6',
+  '#a855f7','#ec4899','#14b8a6','#f97316',
+  '#06b6d4','#84cc16'
+];
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+function init() {
+  if (!DATA) return;
+
+  document.getElementById('lastUpdated').textContent = 'Last updated: ' + DATA.last_updated;
+
+  renderStats();
+  renderChainTabs();
+  renderIndexBars();
+  renderChainsGrid();
+
+  // Default to first chain
+  const firstKey = Object.keys(DATA.chains)[0];
+  setActiveChain(firstKey);
+}
+
+// ── STATS STRIP ───────────────────────────────────────────────────────────────
+
+function renderStats() {
+  const chains = Object.values(DATA.chains);
+  const allPcts = chains.map(c => parseFloat(getAvgPctIncrease(c.items)));
+  const avgAll = (allPcts.reduce((a,b)=>a+b,0) / allPcts.length).toFixed(1);
+  const highest = chains.reduce((a,b) =>
+    parseFloat(getAvgPctIncrease(a.items)) > parseFloat(getAvgPctIncrease(b.items)) ? a : b
+  );
+  const lowest = chains.reduce((a,b) =>
+    parseFloat(getAvgPctIncrease(a.items)) < parseFloat(getAvgPctIncrease(b.items)) ? a : b
+  );
+
+  // Count total items tracked
+  const totalItems = chains.reduce((sum, c) => sum + Object.keys(c.items).length, 0);
+
+  const stats = [
+    { label: 'Avg Inflation Since 2020', value: '+' + avgAll + '%', cls: 'up', sub: 'across all chains' },
+    { label: 'Biggest Increase', value: highest.name, cls: 'neutral', sub: '+' + getAvgPctIncrease(highest.items) + '% avg' },
+    { label: 'Smallest Increase', value: lowest.name, cls: 'neutral', sub: '+' + getAvgPctIncrease(lowest.items) + '% avg' },
+    { label: 'Chains Tracked', value: chains.length, cls: 'neutral', sub: totalItems + ' menu items' },
+    { label: 'Years of Data', value: '6 yrs', cls: 'neutral', sub: '2020 — 2026' },
+  ];
+
+  const el = document.getElementById('statsStrip');
+  el.innerHTML = stats.map(s => `
+    <div class="stat-card fade-in">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value ${s.cls}">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>
+  `).join('');
+}
+
+// ── CHAIN TABS ────────────────────────────────────────────────────────────────
+
+function renderChainTabs() {
+  const el = document.getElementById('chainTabs');
+  const chains = DATA.chains;
+  let i = 0;
+  el.innerHTML = Object.entries(chains).map(([key, chain]) => {
+    const color = chain.color || CHART_COLORS[i++ % CHART_COLORS.length];
+    return `
+      <button class="chain-tab" data-key="${key}" onclick="setActiveChain('${key}')">
+        <span class="dot" style="background:${color}"></span>
+        ${chain.logo} ${chain.name}
+      </button>
+    `;
+  }).join('');
+}
+
+// ── SET ACTIVE CHAIN ──────────────────────────────────────────────────────────
+
+function setActiveChain(key) {
+  activeChain = key;
+
+  // Update tabs
+  document.querySelectorAll('.chain-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.key === key);
+  });
+
+  renderHistoryChart(key);
+}
+
+// ── HISTORY CHART ─────────────────────────────────────────────────────────────
+
+function renderHistoryChart(chainKey) {
+  const chain = DATA.chains[chainKey];
+  const ctx = document.getElementById('historyChart').getContext('2d');
+
+  if (historyChart) historyChart.destroy();
+
+  const datasets = Object.entries(chain.items).map(([itemName, entries], i) => ({
+    label: itemName,
+    data: entries.map(e => e.price),
+    borderColor: CHART_COLORS[i % CHART_COLORS.length],
+    backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '18',
+    fill: true,
+    tension: 0.4,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    borderWidth: 2,
+  }));
+
+  const labels = Object.values(chain.items)[0].map(e => e.date.slice(0,4));
+
+  historyChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#888',
+            font: { family: 'DM Sans', size: 11 },
+            boxWidth: 12,
+            padding: 16,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          borderColor: '#333',
+          borderWidth: 1,
+          titleColor: '#f0ece4',
+          bodyColor: '#888',
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#1e1e1e' },
+          ticks: { color: '#555', font: { family: 'DM Mono', size: 11 } }
+        },
+        y: {
+          grid: { color: '#1e1e1e' },
+          ticks: {
+            color: '#555',
+            font: { family: 'DM Mono', size: 11 },
+            callback: v => '$' + v.toFixed(2)
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── INDEX BARS ────────────────────────────────────────────────────────────────
+
+function renderIndexBars() {
+  const el = document.getElementById('indexBarList');
+  const entries = Object.entries(DATA.chains).map(([key, chain]) => ({
+    name: chain.name,
+    color: chain.color,
+    pct: parseFloat(getAvgPctIncrease(chain.items))
+  })).sort((a,b) => b.pct - a.pct);
+
+  const max = Math.max(...entries.map(e => e.pct));
+
+  el.innerHTML = entries.map(e => `
+    <li class="index-bar-item">
+      <span class="index-chain-name">${e.name}</span>
+      <div class="index-bar-track">
+        <div class="index-bar-fill" style="width:${(e.pct/max*100).toFixed(1)}%; background:${e.color}"></div>
+      </div>
+      <span class="index-pct">+${e.pct.toFixed(1)}%</span>
+    </li>
+  `).join('');
+}
+
+// ── CHAINS GRID ───────────────────────────────────────────────────────────────
+
+function renderChainsGrid() {
+  const el = document.getElementById('chainsGrid');
+  el.innerHTML = Object.entries(DATA.chains).map(([key, chain]) => {
+    const avgPct = getAvgPctIncrease(chain.items);
+    const itemRows = Object.entries(chain.items).map(([name, entries]) => {
+      const old = entries[0].price;
+      const now = entries[entries.length - 1].price;
+      const pct = (((now - old) / old) * 100).toFixed(0);
+      return `
+        <li class="item-row">
+          <span class="item-name">${name}</span>
+          <span class="item-prices">
+            <span class="item-old">${formatPrice(old)}</span>
+            <span class="item-new">${formatPrice(now)}</span>
+            <span class="item-pct">+${pct}%</span>
+          </span>
+        </li>
+      `;
+    }).join('');
+
+    return `
+      <div class="chain-card fade-in" style="--chain-color:${chain.color}" onclick="setActiveChain('${key}'); window.scrollTo({top:0,behavior:'smooth'})">
+        <div class="chain-card-header">
+          <div class="chain-info">
+            <span class="chain-emoji">${chain.logo}</span>
+            <span class="chain-name">${chain.name}</span>
+          </div>
+          <span class="chain-increase">+${avgPct}%</span>
+        </div>
+        <ul class="item-list">${itemRows}</ul>
+        <div class="mini-chart-wrap">
+          <canvas id="mini-${key}"></canvas>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Render mini sparkline charts after DOM is ready
+  requestAnimationFrame(() => renderMiniCharts());
+}
+
+function renderMiniCharts() {
+  Object.entries(DATA.chains).forEach(([key, chain]) => {
+    const canvas = document.getElementById('mini-' + key);
+    if (!canvas) return;
+    if (miniCharts[key]) miniCharts[key].destroy();
+
+    const firstItem = Object.values(chain.items)[0];
+    const labels = firstItem.map(e => e.date.slice(0,4));
+    const data = firstItem.map(e => e.price);
+
+    miniCharts[key] = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          borderColor: chain.color,
+          borderWidth: 1.5,
+          fill: true,
+          backgroundColor: chain.color + '18',
+          tension: 0.4,
+          pointRadius: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false },
+          y: { display: false }
+        },
+        animation: { duration: 800 }
+      }
+    });
+  });
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+
+</body>
+</html>
